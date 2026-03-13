@@ -11,6 +11,7 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
 
   const menuItems = [
+    { name: "Dashboard", path: "/", icon: "fas fa-home" },
     { name: "Caixa", path: "/caixa", icon: "fas fa-cash-register" },
     { name: "Estoque", path: "/estoque", icon: "fas fa-boxes" },
     { name: "Clientes", path: "/clientes", icon: "fas fa-users" },
