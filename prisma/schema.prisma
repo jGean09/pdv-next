@@ -27,11 +27,13 @@ model Product {
 }
 
 model Client {
-  id      Int     @id @default(autoincrement())
-  name    String
-  phone   String?
-  address String?
-  sales   Sale[]  // ADICIONADO: O Prisma exige isso para a relação com Sale
+  id        Int       @id @default(autoincrement())
+  name      String
+  phone     String?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  sales     Sale[]    // <-- ESSA É A LINHA QUE VOCÊ APAGOU E QUEBROU O BANCO
 }
 
 model Sale {
