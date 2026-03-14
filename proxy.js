@@ -7,43 +7,56 @@ const SECRET_KEY = new TextEncoder().encode("sua-chave-secreta-pdv-master-super-
 export default async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  // 1. Definição de rotas que não precisam de autenticação
+  // 1. Rotas que NUNCA são bloqueadas (Login, APIs de Auth e Arquivos Estáticos)
   const isPublicApi = pathname.startsWith('/api/auth');
   const isLoginPage = pathname === '/login';
   const isStatic = pathname.startsWith('/_next') || pathname.includes('.');
 
   const token = request.cookies.get('pdv_session')?.value;
 
-  // 2. Se for API de autenticação ou arquivos do sistema, deixa passar
   if (isPublicApi || isStatic) {
     return NextResponse.next();
   }
 
-  // 3. Se não tem token e não está no login, expulsa para o login
   if (!token && !isLoginPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 4. Se tem token, valida o acesso
   if (token) {
     try {
       const { payload } = await jwtVerify(token, SECRET_KEY);
 
-      // Se já está logado e tenta ir para a tela de login
       if (isLoginPage) {
         return NextResponse.redirect(
           new URL(payload.role === 'CAIXA' ? '/caixa' : '/', request.url)
         );
       }
 
-      // Restrição de nível: Caixa só acessa a tela de venda (/caixa)
-      if (payload.role === 'CAIXA' && pathname !== '/caixa') {
-        return NextResponse.redirect(new URL('/caixa', request.url));
+      // ---------------------------------------------------------
+      // REGRAS DE ACESSO PARA O CAIXA (RBAC)
+      // ---------------------------------------------------------
+      if (payload.role === 'CAIXA') {
+        // Lista de APIs que o Caixa PRECISA para o PDV funcionar
+        const apisPermitidas = [
+          '/api/products',
+          '/api/clients',
+          '/api/sales',
+          '/api/categories',
+          '/api/auth/logout'
+        ];
+
+        const acessandoApiPermitida = apisPermitidas.some(api => pathname.startsWith(api));
+
+        // Se o Caixa tentar sair da tela /caixa e não for para uma API vital, ele é barrado
+        if (pathname !== '/caixa' && !acessandoApiPermitida) {
+          return NextResponse.redirect(new URL('/caixa', request.url));
+        }
       }
 
+      // Se for ADMIN ou passar pelas regras acima, segue o jogo
       return NextResponse.next();
+
     } catch (error) {
-      // Token inválido ou expirado
       const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('pdv_session');
       return response;
