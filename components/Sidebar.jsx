@@ -8,10 +8,16 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Espera o componente montar no navegador para evitar erro de "document is not defined"
   useEffect(() => {
     setMounted(true);
+    // Verificação real: o cookie pdv_session existe? 
+    // E o servidor nos disse que somos ADMIN?
+    // Para simplificar agora e resolver seu problema visual:
+    const checkAdmin = document.cookie.includes("role=ADMIN") || 
+                       !document.cookie.includes("role=CAIXA"); 
+    setIsAdmin(checkAdmin);
   }, []);
 
   const allMenuItems = [
@@ -24,31 +30,23 @@ export default function Sidebar() {
     { name: "Usuários", path: "/usuarios", icon: "fas fa-user-cog", roles: ["ADMIN"] },
   ];
 
-  // Filtra o menu de forma segura
+  // FILTRO CORRIGIDO:
+  // Se montou e for ADMIN, vê tudo. Se for CAIXA, vê apenas o que é dele.
   const filteredMenu = allMenuItems.filter(item => {
-    if (!mounted) return item.roles.includes("CAIXA"); // Estado inicial seguro (mostra o mínimo)
-
-    // Verifica se o usuário é ADMIN pelo cookie (apenas para interface)
-    const isAdmin = document.cookie.includes("ADMIN") || !pathname.includes('caixa');
-    
-    if (isAdmin) return true;
-    return item.roles.includes("CAIXA");
+    if (!mounted) return item.roles.includes("CAIXA");
+    if (isAdmin) return true; // ADMIN vê a lista inteira sempre
+    return item.roles.includes("CAIXA"); // CAIXA vê só o PDV
   });
 
   const handleLogout = async () => {
-    if (confirm("Deseja realmente sair do sistema?")) {
-      try {
-        await fetch("/api/auth/logout", { method: "POST" });
-        // Limpa o cookie no cliente por garantia
-        document.cookie = "pdv_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-        window.location.href = "/login";
-      } catch (error) {
-        window.location.href = "/login";
-      }
+    if (confirm("Deseja realmente sair?")) {
+      await fetch("/api/auth/logout", { method: "POST" });
+      document.cookie = "pdv_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      document.cookie = "role=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      window.location.href = "/login";
     }
   };
 
-  // Enquanto não montou no navegador, renderizamos uma versão simplificada para evitar erros
   if (!mounted) return <aside className="w-20 bg-slate-900 h-screen" />;
 
   return (
@@ -85,10 +83,10 @@ export default function Sidebar() {
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0 text-[10px]">
-              <i className="fas fa-user"></i>
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+              <i className="fas fa-user-shield text-xs text-blue-400"></i>
             </div>
-            {isOpen && <span className="text-sm font-bold truncate">Menu</span>}
+            {isOpen && <span className="text-xs font-black uppercase tracking-widest">{isAdmin ? "Admin" : "Caixa"}</span>}
           </div>
           <button onClick={handleLogout} className="text-red-400 hover:text-red-500 p-2 transition-colors">
             <i className="fas fa-sign-out-alt text-xl"></i>
